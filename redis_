@@ -6,7 +6,7 @@
 #%# capabilities=autoconf suggest
 
 ip_socket=$(echo $0 | awk -F_ '{ print $2 }')
-if [ $ip_socket = "socket" ]; then
+if [ "$ip_socket" = "socket" ]; then
 tmp_var=$(echo $0 | awk -F_ '{ s = ""; for (i = 3; i <= NF; i++) s = s $i "/"; print s }')
 port_path=$(echo "/${tmp_var}" | sed 's,/$,,')
 else
@@ -55,6 +55,11 @@ if [ "$ip_socket" = "-s" ]; then
 else
     muninport=$(echo "$port_path" | awk '{ print $2 }')
 fi
+
+max_memory=$(redis-cli config get maxmemory | grep 2)
+max_memory_warning=$(echo "$max_memory * 0.9" | bc -l)
+
+
 
 if [ "$1" = "config" ]; then
     # Expose all possibles graphes according to server's capabilities

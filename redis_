@@ -56,14 +56,18 @@ else
     muninport=$(echo "$port_path" | awk '{ print $2 }')
 fi
 
-max_memory=$(redis-cli config get maxmemory | grep 2)
+max_memory=$(redis-cli config get maxmemory | sed -n 2p)
+
+if [ $max_memory -eq 0 ]; then
+   max_memory=$(grep MemTotal /proc/meminfo | awk '{print $2}' | xargs -I {} echo "{} * 1024" | bc)
+
+fi
+
 max_memory_warning=$(echo "$max_memory * 0.9" | bc -l)
-
-
 
 if [ "$1" = "config" ]; then
     # Expose all possibles graphes according to server's capabilities
-    redis-cli $ip_socket $port_path $passwd info | awk -v port=${muninport} -F: '
+    redis-cli $ip_socket $port_path $passwd info | awk -v port=${muninport} -v max_memory_warning=$max_memory_warning -F: '
 
     /^changes_since_last_save:/ {
         print "multigraph redis_changes_since_last_save_"port;
@@ -114,6 +118,8 @@ if [ "$1" = "config" ]; then
         print "memory.info Amount of mem used by Redis";
         print "memory.type GAUGE";
         print "memory.min 0";
+        print "memory.warning " max_memory_warning;
+        print "max_memory.label maxmemory";
     };
 
     /^connected_clients:/ {
@@ -211,7 +217,7 @@ if [ "$1" = "config" ]; then
     exit $?
 fi
 
-redis-cli $ip_socket $port_path $passwd info | awk -v port=${muninport} -F: '
+redis-cli $ip_socket $port_path $passwd info | awk -v port=${muninport} -v max_memory=$max_memory -F: '
 
    /^changes_since_last_save:/ {
         print "multigraph redis_changes_since_last_save_"port;
@@ -226,6 +232,7 @@ redis-cli $ip_socket $port_path $passwd info | awk -v port=${muninport} -F: '
     /^used_memory:/ {
         print "multigraph redis_memory_"port;
         print "memory.value " $2 ;
+        print "max_memory.value " max_memory ;
     };
 
     /^connected_clients:/ {
